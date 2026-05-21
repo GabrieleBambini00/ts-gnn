@@ -10,10 +10,12 @@ if str(_src) not in sys.path:
 import pytest
 import torch
 
+from tsgnn.utils import set_global_seed
+
 
 @pytest.fixture
 def seed():
-    torch.manual_seed(42)
+    set_global_seed(42)
     return 42
 
 

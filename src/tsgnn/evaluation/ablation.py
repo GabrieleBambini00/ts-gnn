@@ -18,6 +18,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
+from tsgnn.utils import set_global_seed
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,7 +72,7 @@ class AblationRunner:
         for seed in self.seeds:
             cfg = copy.deepcopy(config)
             cfg["seed"] = seed
-            _set_seed(seed)
+            set_global_seed(seed)
 
             logger.info(f"  {label}, seed={seed}")
             train_metrics = self.train_fn(cfg)
@@ -191,16 +193,6 @@ class AblationRunner:
         lines.append(r"\end{table}")
 
         return "\n".join(lines)
-
-
-def _set_seed(seed: int):
-    """Set all random seeds for reproducibility."""
-    import random
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
 
 
 def _aggregate_results(seed_results: List[Dict]) -> Dict:

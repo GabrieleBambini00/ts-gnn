@@ -5,8 +5,6 @@ Runs training TWICE with the same seed on small synthetic data for 3 epochs
 and asserts per-epoch loss sequences are bit-identical (torch.equal / ==).
 """
 
-import copy
-
 import pytest
 import torch
 
