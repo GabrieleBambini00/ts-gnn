@@ -1,0 +1,51 @@
+name: tsgnn
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip
+  - cudatoolkit=11.8
+  - pytorch=2.2.0
+  - pytorch-cuda=11.8
+
+  # Core scientific
+  - numpy=1.26.4
+  - scipy=1.12.0
+  - pandas=2.2.0
+  - matplotlib=3.8.3
+  - seaborn=0.13.2
+
+  # Bioinformatics (conda-forge has better builds)
+  - scanpy=1.10.0
+  - anndata=0.10.5
+
+  - pip:
+    # PyG (must come from pip for version lock)
+    - torch-geometric==2.5.0
+    - torch-scatter==2.1.2
+    - torch-sparse==0.6.18
+    # Biology
+    - scvelo==0.3.2
+    - harmonypy==0.0.9
+    - scrublet==0.2.3
+    - decoupler==1.6.0
+    - fair-esm==2.0.0
+    - GEOparse==2.0.4
+    # Config & tracking
+    - wandb==0.16.3
+    - hydra-core==1.3.2
+    - omegaconf==2.3.0
+    - pyyaml==6.0.1
+    # Progress & viz
+    - tqdm==4.66.2
+    - networkx==3.2.1
+    - plotly==5.18.0
+    # Hyperparameter optimisation (optional)
+    - optuna==3.5.0
+    - optuna-dashboard==0.14.0
+    # Project
+    - -e .

@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  tsgnn:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    volumes:
+      - ../data:/app/data
+      - ../checkpoints:/app/checkpoints
+      - ../figures:/app/figures
+    environment:
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: >
+      python scripts/run_pipeline.py
+        --config configs/default.yaml
+        --skip-download
+
+  tsgnn-test:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: python -m pytest tests/ ultimate/test_properties.py -v --tb=short
+
+  tsgnn-demo:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    volumes:
+      - ../ultimate/results:/app/ultimate/results
+    command: python ultimate/run_synthetic_proof.py

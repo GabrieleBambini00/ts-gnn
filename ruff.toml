@@ -1,0 +1,9 @@
+[lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+ignore = ["E501"]
+
+[lint.isort]
+known-first-party = ["tsgnn"]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"]

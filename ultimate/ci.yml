@@ -1,0 +1,62 @@
+name: TS-GNN CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+        restore-keys: ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        cd ts-gnn
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e ".[dev]"
+
+    - name: Lint with ruff
+      run: |
+        cd ts-gnn
+        ruff check src/ tests/ --exit-zero
+
+    - name: Run unit tests
+      run: |
+        cd ts-gnn
+        python -m pytest tests/ -v --tb=short -q
+
+    - name: Run tests with coverage
+      run: |
+        cd ts-gnn
+        python -m pytest tests/ -v --cov=tsgnn --cov-report=term-missing --cov-fail-under=50 --tb=short
+
+    - name: Run property tests
+      run: |
+        cd ts-gnn
+        python -m pytest ultimate/test_properties.py -v --tb=short -q
+
+    - name: Run synthetic demo (smoke test)
+      run: |
+        cd ts-gnn
+        python scripts/run_pipeline.py --config configs/default.yaml --skip-download
+      timeout-minutes: 10

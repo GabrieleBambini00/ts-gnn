@@ -1,0 +1,44 @@
+# Data (large files — entire directory excluded; multi-hundred-MB datasets)
+data/
+
+# Model weights / checkpoints
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# wandb
+wandb/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model checkpoints
+checkpoints/
+*.ckpt
+
+# Env / secrets
+.env
+
+# Pytest cache
+.pytest_cache/
+
+# Large zip archives generated locally
+*.zip
+
+# Notebook output (ipynb_checkpoints already above, also strip outputs)
+*.ipynb_checkpoints

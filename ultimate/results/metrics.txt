@@ -1,0 +1,4 @@
+TS-GNN: {'zero_shot_r': 0.9636471271514893, 'distinguish_p': 0.42, 'effect_size': 0.21271550009863352, 'val_loss': 1.0281139612197876}
+TS-GNN (no allele): {'zero_shot_r': 0.006766241043806076, 'distinguish_p': 1.0, 'effect_size': -3.313732277915504, 'val_loss': 1.2246965964635212}
+EvolveGCN: {'zero_shot_r': 0.941673994064331, 'val_loss': 1.0061667958895366}
+Temporal GAT: {'zero_shot_r': 0.323503315448761, 'val_loss': 1.0163480043411255}

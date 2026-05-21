@@ -1,0 +1,85 @@
+# TS-GNN Default Configuration
+# All hyperparameters in one place. No hardcoded values in code.
+
+seed: 42
+
+# Data
+data:
+  brca_geo_accessions:
+    - "GSE176078"
+    - "GSE158508"
+  n_genes: 500            # Feature-selected gene count (N)
+  n_hvgs: 2000            # HVG selection for preprocessing
+  min_cells_per_allele: 50
+  malignant_cell_method: "scrublet"  # options: scrublet | copykat_rpy2
+  alleles:
+    - "R175H"
+    - "R273H"
+    - "R248W"
+    - "R282W"
+    - "G245S"
+    - "Y220C"
+    - "WT"
+
+# Temporal binning
+temporal:
+  K: 10                   # Number of pseudotime bins
+  pseudotime_method: "diffusion"  # "monocle3" or "diffusion"
+  velocity: true          # Use RNA velocity for orientation
+
+# Model architecture
+model:
+  stalk_dim: 4                   # d: sheaf stalk dimension {2, 4, 8}
+  use_gradient_checkpointing: false  # auto-enabled when stalk_dim >= 8
+  use_normalized_laplacian: true     # D^{-1/2} L_F D^{-1/2}, eigenvalues in [0,2]
+  input_dim: 500                 # Same as n_genes
+  esm_dim: 1280                  # ESM-2 t33 output dimension
+  conditioning_dim: 128          # FiLM conditioning latent dim
+  num_diffusion_steps: 3         # Sheaf diffusion iterations per time step
+  k_hop_radius: 2                # Propagation radius for sparsity loss {1, 2, 3}
+
+# Training
+training:
+  optimizer: "adam"
+  lr: 1.0e-3
+  weight_decay: 0.0
+  max_epochs: 500
+  patience: 20            # Early stopping patience
+  grad_clip_norm: 1.0
+  batch_size: 1           # Full graph per step
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  curriculum: true        # Use curriculum learning strategy
+
+# Loss weights
+loss:
+  lambda_1: 0.1           # Topological preservation
+  lambda_2: 0.5           # Regulon activity (DoRothEA ULM VIPER)
+  lambda_3: 0.01          # Sparsity (allele-specific Laplacian gradient)
+  lambda_4: 0.0           # Velocity consistency (0 = disabled; activate with scVelo data)
+  tau: 0.5                # Hinge threshold for L_topo
+
+# Ablation grid
+ablation:
+  stalk_dims: [2, 4, 8]
+  k_hop_radii: [1, 2, 3]
+  temporal_bins: [5, 10, 20]
+  lambda_1_grid: [0.01, 0.1, 1.0]
+  lambda_2_grid: [0.1, 0.5, 1.0]
+  lambda_3_grid: [0.001, 0.01, 0.1]
+  n_seeds: 3
+
+# Evaluation
+evaluation:
+  zero_shot_r_threshold: 0.3
+  enrichment_p_threshold: 0.001
+  depmap_rho_threshold: 0.2
+  permutation_n: 1000
+
+# Logging
+logging:
+  use_wandb: false        # Set true when ready
+  project_name: "tsgnn"
+  log_interval: 10
+  vis_interval: 50

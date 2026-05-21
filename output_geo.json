@@ -1,0 +1,12 @@
+{
+  "tcga_mut": "string indices must be integers, not 'str'",
+  "GSE176078": [
+    "GSE176078_RAW.tar",
+    "GSE176078_Wu_etal_2021_BRCA_scRNASeq.tar.gz",
+    "GSE176078_Wu_etal_2021_bulkRNAseq_raw_counts.txt.gz"
+  ],
+  "GSE158508": [
+    "GSE158508_ImPlatelet_counts.tsv.gz",
+    "GSE158508_normalized_counts.txt.gz"
+  ]
+}

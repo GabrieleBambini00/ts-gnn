@@ -1,0 +1,52 @@
+[
+  {
+    "id": 28893384,
+    "name": "RAW.UMI.counts.BC.cell.lines.rds",
+    "size": 268633416,
+    "is_link_only": false,
+    "download_url": "https://ndownloader.figshare.com/files/28893384",
+    "supplied_md5": "c4a2f64bbf7dfb35e8c36fa205c9b991",
+    "computed_md5": "c4a2f64bbf7dfb35e8c36fa205c9b991",
+    "mimetype": "application/gzip"
+  },
+  {
+    "id": 30469062,
+    "name": "matrix.mtx.gz",
+    "size": 342804094,
+    "is_link_only": false,
+    "download_url": "https://ndownloader.figshare.com/files/30469062",
+    "supplied_md5": "5dc62e2ee84ce062199a85e9fb0563c1",
+    "computed_md5": "5dc62e2ee84ce062199a85e9fb0563c1",
+    "mimetype": "application/gzip"
+  },
+  {
+    "id": 30469065,
+    "name": "barcodes.tsv.gz",
+    "size": 155155,
+    "is_link_only": false,
+    "download_url": "https://ndownloader.figshare.com/files/30469065",
+    "supplied_md5": "495123bb9276a48652a2311e52f026fa",
+    "computed_md5": "495123bb9276a48652a2311e52f026fa",
+    "mimetype": "application/gzip"
+  },
+  {
+    "id": 30469068,
+    "name": "features.tsv.gz",
+    "size": 152125,
+    "is_link_only": false,
+    "download_url": "https://ndownloader.figshare.com/files/30469068",
+    "supplied_md5": "42ecc60d29117e852c1340f88b71f0b6",
+    "computed_md5": "42ecc60d29117e852c1340f88b71f0b6",
+    "mimetype": "application/gzip"
+  },
+  {
+    "id": 33943715,
+    "name": "GFICF.processed.counts.gficf",
+    "size": 1316759040,
+    "is_link_only": false,
+    "download_url": "https://ndownloader.figshare.com/files/33943715",
+    "supplied_md5": "799ea74c7f3e4c1da1dd3123258401be",
+    "computed_md5": "799ea74c7f3e4c1da1dd3123258401be",
+    "mimetype": "application/x-tar"
+  }
+]
