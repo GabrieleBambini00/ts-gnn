@@ -32,6 +32,7 @@ import torch
 import torch.nn as nn
 
 from .loss import TSGNNLoss
+from ..utils import set_global_seed
 
 logger = logging.getLogger(__name__)
 
@@ -198,12 +199,10 @@ class TSGNNTrainer:
         )
         logger.info(f"Alleles: {list(train_data.keys())}")
 
-        # Enforce reproducibility from config seed
+        # Enforce reproducibility from config seed — must run before any
+        # model construction or data shuffling.
         seed = self.config.get("seed", 42)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
+        set_global_seed(seed)
         logger.info(f"Random seed set to {seed}")
 
         best_val_loss = float("inf")
