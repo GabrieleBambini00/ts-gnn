@@ -140,6 +140,112 @@ class VectorizedSheafDiffusion(nn.Module):
         self.register_buffer("diag_src_flat_idx", diag_src_rows * Nd + diag_src_cols)
         self.register_buffer("diag_tgt_flat_idx", diag_tgt_rows * Nd + diag_tgt_cols)
 
+        # ── Sparse COO indices (reused by compute_sparse_laplacian) ──────────
+        # We store the (row, col) pairs for every structural non-zero so the
+        # sparse path only needs to supply the matching values at forward time.
+        #
+        # Structural non-zeros:
+        #   4 × E × d² element slots coming from the 4 scatter operations above.
+        # Values can overlap (same (row,col) written by ≥ 1 scatter); COO
+        # torch.sparse_coo_tensor with duplicate indices sums them automatically,
+        # which is exactly what we want (same semantic as scatter_add_).
+        sparse_rows = torch.cat([
+            off_diag_rows,       # off-diag (u→v)
+            off_diag_rows_T,     # off-diag (v→u)
+            diag_src_rows,       # diagonal src
+            diag_tgt_rows,       # diagonal tgt
+        ])  # (4 * E * d²,)
+        sparse_cols = torch.cat([
+            off_diag_cols,
+            off_diag_cols_T,
+            diag_src_cols,
+            diag_tgt_cols,
+        ])  # (4 * E * d²,)
+        # Stack as (2, nnz) index tensor required by torch.sparse_coo_tensor
+        self.register_buffer(
+            "sparse_coo_indices",
+            torch.stack([sparse_rows, sparse_cols], dim=0),  # (2, 4Ed²)
+        )
+
+    def compute_sparse_laplacian(
+        self,
+        restriction_maps: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Build the sheaf connection Laplacian as a SPARSE COO tensor.
+
+        Memory layout
+        -------------
+        The dense Laplacian is (Nd × Nd) with Nd² elements.
+        The sparse version stores at most 4 · E · d² values (the four scatter
+        operations: off-diag u→v, off-diag v→u, diag-src, diag-tgt).
+        For a sparse graph (E ≪ N²) this is much smaller.
+
+        The COO tensor has duplicate (row, col) entries that PyTorch sums when
+        the tensor is coalesced or used in a matvec, giving the identical result
+        to scatter_add_ on the dense path.
+
+        Args:
+            restriction_maps: Optional external maps (E, 2, d, d).
+
+        Returns:
+            L_sparse: (Nd, Nd) sparse COO tensor (coalesced, fp32-compatible).
+        """
+        maps = restriction_maps if restriction_maps is not None else self.restriction_maps
+        Nd = self.Nd
+        dev = maps.device
+
+        F_src = maps[:, 0]  # (E, d, d)
+        F_tgt = maps[:, 1]  # (E, d, d)
+
+        # Compute block products — same as dense path
+        off_diag = -torch.bmm(F_src.transpose(1, 2), F_tgt)          # (E, d, d)
+        off_diag_T = off_diag.transpose(1, 2)                         # (E, d, d)
+        diag_src = torch.bmm(F_src.transpose(1, 2), F_src)            # (E, d, d)
+        diag_tgt = torch.bmm(F_tgt.transpose(1, 2), F_tgt)            # (E, d, d)
+
+        # Concatenate values in the same order as the index buffers
+        values = torch.cat([
+            off_diag.reshape(-1),
+            off_diag_T.reshape(-1),
+            diag_src.reshape(-1),
+            diag_tgt.reshape(-1),
+        ])  # (4 * E * d²,)
+
+        # Move index buffers to device if needed (same guard as dense path)
+        indices = self.sparse_coo_indices
+        if indices.device != dev:
+            indices = indices.to(dev)
+            self.sparse_coo_indices = indices
+
+        # Build COO tensor — duplicate indices will be summed on coalesce
+        L_sparse = torch.sparse_coo_tensor(
+            indices, values, size=(Nd, Nd), device=dev
+        ).coalesce()
+
+        return L_sparse
+
+    def sparse_diffusion(
+        self,
+        x: torch.Tensor,
+        L_sparse: torch.Tensor,
+    ) -> torch.Tensor:
+        """One step of sheaf diffusion using the sparse Laplacian.
+
+        Identical math to sheaf_diffusion() but uses torch.sparse.mm instead
+        of a dense matmul, avoiding materialisation of the (Nd × Nd) matrix.
+
+        Args:
+            x: (N, d) node features.
+            L_sparse: (Nd, Nd) sparse COO Laplacian from compute_sparse_laplacian.
+
+        Returns:
+            Updated (N, d) node features.
+        """
+        h = x @ self.weight + self.bias          # (N, d)
+        h_col = h.reshape(-1, 1)                 # (Nd, 1)  — mm needs 2-D
+        diffused = torch.sparse.mm(L_sparse, h_col).reshape(-1, self.d)  # (N, d)
+        return x - self.alpha * diffused
+
     def compute_connection_laplacian_vectorized(
         self,
         restriction_maps: Optional[torch.Tensor] = None,
@@ -228,6 +334,7 @@ class VectorizedSheafDiffusion(nn.Module):
         node_features: torch.Tensor,
         restriction_maps: Optional[torch.Tensor] = None,
         num_steps: int = 3,
+        use_sparse: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Full sheaf diffusion forward pass.
@@ -236,11 +343,26 @@ class VectorizedSheafDiffusion(nn.Module):
             node_features: (N, d) features in stalk space.
             restriction_maps: Optional external maps.
             num_steps: Number of diffusion iterations.
+            use_sparse: If True, build a sparse COO Laplacian and use
+                sparse_diffusion() instead of the dense path.  The result is
+                numerically identical to the dense path (up to fp tolerance).
+                The dense Laplacian is still returned as the second element so
+                the API contract is unchanged.
 
         Returns:
             diffused_features: (N, d) after diffusion.
-            L_F: (Nd, Nd) the computed Laplacian (for loss and visualization).
+            L_F: (Nd, Nd) dense Laplacian (always dense; sparse COO is an
+                 internal representation only).
         """
+        if use_sparse:
+            L_sparse = self.compute_sparse_laplacian(restriction_maps)
+            x = node_features
+            for _ in range(num_steps):
+                x = self.sparse_diffusion(x, L_sparse)
+            # Return dense Laplacian for compatibility (diagnostics, visualisation)
+            L_F = self.compute_connection_laplacian_vectorized(restriction_maps)
+            return x, L_F
+
         L_F = self.compute_connection_laplacian_vectorized(restriction_maps)
         x = node_features
         for _ in range(num_steps):
