@@ -94,6 +94,14 @@ class TSGNNTrainer:
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.use_wandb = use_wandb
 
+        # Defense-in-depth: re-seed here so that even callers who build the
+        # model before constructing the trainer still get a deterministic
+        # optimizer/scheduler state.  The seed is also called in train() to
+        # cover data-shuffling; both calls are intentional — see train() comment.
+        _init_seed = config.get("seed", 42)
+        set_global_seed(_init_seed)
+        logger.debug(f"TSGNNTrainer.__init__: seeded RNGs with seed={_init_seed}")
+
         # Move model to device
         self.model.to(self.device)
 
@@ -199,8 +207,11 @@ class TSGNNTrainer:
         )
         logger.info(f"Alleles: {list(train_data.keys())}")
 
-        # Enforce reproducibility from config seed — must run before any
-        # model construction or data shuffling.
+        # Re-seed at the start of every train() call so that data-shuffling
+        # and dropout stochasticity are covered even when train() is called
+        # multiple times or after __init__ ran.  The seed is also called in
+        # __init__ (defense-in-depth) to cover callers that build the model
+        # after constructing the trainer; both call sites are intentional.
         seed = self.config.get("seed", 42)
         set_global_seed(seed)
         logger.info(f"Random seed set to {seed}")

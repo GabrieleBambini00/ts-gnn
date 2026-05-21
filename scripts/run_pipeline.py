@@ -11,12 +11,10 @@ Usage:
 import argparse
 import logging
 import os
-import random
 import sys
 import time
 from pathlib import Path
 
-import numpy as np
 import torch
 import yaml
 
@@ -24,18 +22,9 @@ import yaml
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root / "src"))
 
+from tsgnn.utils import set_global_seed  # noqa: E402 — must come after sys.path patch
+
 logger = logging.getLogger("tsgnn.pipeline")
-
-
-def set_seed(seed: int):
-    """Fix all random seeds for reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
 
 
 def run_pipeline(config_path: str, skip_download: bool = False, skip_training: bool = False):
@@ -47,7 +36,8 @@ def run_pipeline(config_path: str, skip_download: bool = False, skip_training: b
         config = yaml.safe_load(f)
 
     seed = config.get("seed", 42)
-    set_seed(seed)
+    # Seed BEFORE any model construction so weight initialisation is covered.
+    set_global_seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}, Seed: {seed}")
 

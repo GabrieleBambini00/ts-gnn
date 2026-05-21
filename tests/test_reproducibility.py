@@ -139,3 +139,35 @@ def test_trainer_uses_config_seed(tmp_path):
     assert results["epochs_trained"] >= 1
     # Seed field must be present in config and consumed
     assert config["seed"] == SEED
+
+
+def test_model_init_reproducibility():
+    """Constructing the model TWICE after set_global_seed(same_seed) yields
+    bit-identical initial parameters.
+
+    This directly tests the gap that was previously missed: model weight
+    initialisation must be covered by the seed, not just the training loop.
+    """
+    edge_index_fixed = torch.tensor(
+        [[i % N for i in range(E)], [(i + 1) % N for i in range(E)]],
+        dtype=torch.long,
+    )
+
+    set_global_seed(SEED)
+    model_a = _make_model(edge_index_fixed)
+
+    set_global_seed(SEED)
+    model_b = _make_model(edge_index_fixed)
+
+    sd_a = model_a.state_dict()
+    sd_b = model_b.state_dict()
+
+    assert sd_a.keys() == sd_b.keys(), "State dicts have different keys."
+    mismatched = [
+        k for k in sd_a
+        if not torch.equal(sd_a[k], sd_b[k])
+    ]
+    assert not mismatched, (
+        f"Model init is NOT reproducible across two set_global_seed({SEED}) calls.\n"
+        f"Differing parameter tensors: {mismatched}"
+    )
