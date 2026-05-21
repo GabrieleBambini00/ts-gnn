@@ -1,5 +1,6 @@
 # Data (large files — entire directory excluded; multi-hundred-MB datasets)
-data/
+# Anchored to repo root so src/tsgnn/data/ (source code) is NOT excluded.
+/data/
 
 # Model weights / checkpoints
 *.pt
