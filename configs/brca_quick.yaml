@@ -1,0 +1,24 @@
+seed: 42
+device: cuda
+
+data:
+  dataset: brca
+  K: 5  # Small for quick run
+  n_genes: 500
+  data_dir: data
+
+model:
+  stalk_dim: 4
+  esm_dim: 1280
+  conditioning_dim: 128
+  num_diffusion_steps: 2
+
+training:
+  epochs: 3
+  batch_size: 32
+  learning_rate: 0.001
+  allow_synthetic_fallback: false
+
+output:
+  checkpoint_dir: checkpoints/brca_sheaf
+  experiment_name: brca_sheaf_quick
