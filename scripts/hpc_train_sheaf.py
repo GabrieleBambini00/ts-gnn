@@ -20,7 +20,7 @@ import logging
 import os
 import sys
 import time
-from datetimelib import datetime
+from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -33,7 +33,7 @@ sys.path.insert(0, str(project_root / "src"))
 
 from tsgnn.utils import set_global_seed
 from tsgnn.data.splits import assert_no_group_leakage
-from tsgnn.training.trainer import Trainer
+from tsgnn.training.trainer import TSGNNTrainer
 
 logger = logging.getLogger("tsgnn.hpc")
 
@@ -169,7 +169,7 @@ def run_hpc_training(config_path: str, output_dir: str, skip_leakage_check: bool
     logger.info(f"Learning rate: {training_cfg.get('learning_rate', 0.001)}")
 
     # Initialize trainer
-    trainer = Trainer(config=config, output_dir=output_dir, logger=logger)
+    trainer = TSGNNTrainer(config=config, checkpoint_dir=output_dir)
 
     # Train on real data
     logger.info("\nStarting training...")
