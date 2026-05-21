@@ -13,7 +13,6 @@ import pytest
 
 from tsgnn.data.splits import LeakageError, assert_no_group_leakage, group_split
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
 # ─────────────────────────────────────────────────────────────────────────────
@@ -201,3 +200,34 @@ def test_invalid_size_sum_raises(synthetic_dataset):
     groups, labels = synthetic_dataset
     with pytest.raises(ValueError, match="must be < 1.0"):
         group_split(groups, labels, test_size=0.6, val_size=0.5)
+
+
+def test_too_few_groups_raises():
+    """Fewer than 2 unique groups must raise ValueError."""
+    groups = ["CL01"] * 10
+    labels = [0] * 10
+    with pytest.raises(ValueError, match="at least 2 unique group ids"):
+        group_split(groups, labels)
+
+
+@pytest.mark.parametrize("test_size", [0.0, 1.0, -0.1, 1.5])
+def test_test_size_out_of_range_raises(synthetic_dataset, test_size):
+    """test_size outside (0, 1) must raise ValueError."""
+    groups, labels = synthetic_dataset
+    with pytest.raises(ValueError, match="test_size must be in the open interval"):
+        group_split(groups, labels, test_size=test_size)
+
+
+@pytest.mark.parametrize("val_size", [0.0, 1.0, -0.1, 1.5])
+def test_val_size_out_of_range_raises(synthetic_dataset, val_size):
+    """val_size outside (0, 1) must raise ValueError."""
+    groups, labels = synthetic_dataset
+    with pytest.raises(ValueError, match="val_size must be in the open interval"):
+        group_split(groups, labels, test_size=0.2, val_size=val_size)
+
+
+def test_val_plus_test_size_equal_one_raises(synthetic_dataset):
+    """test_size + val_size == 1.0 must raise ValueError (boundary check)."""
+    groups, labels = synthetic_dataset
+    with pytest.raises(ValueError, match="must be < 1.0"):
+        group_split(groups, labels, test_size=0.5, val_size=0.5)

@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from tsgnn.data.splits import LeakageError, assert_no_group_leakage, group_split
+
 
 def _resolve_data_dir() -> Path:
     """Resolve the project data directory with 3-level fallback.
@@ -29,5 +31,6 @@ EXTERNAL_DIR = DATA_DIR / "external"
 __all__ = [
     "download", "preprocess", "allele", "grn_construction", "temporal",
     "brca_loader",
+    "splits", "LeakageError", "assert_no_group_leakage", "group_split",
     "DATA_DIR", "RAW_DIR", "EXTERNAL_DIR", "_resolve_data_dir",
 ]

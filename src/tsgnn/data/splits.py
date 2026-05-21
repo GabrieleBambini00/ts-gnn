@@ -18,7 +18,7 @@ References
 """
 
 import logging
-from typing import Optional, Sequence, Tuple
+from collections.abc import Sequence
 
 import numpy as np
 from sklearn.model_selection import GroupShuffleSplit
@@ -41,7 +41,7 @@ class LeakageError(Exception):
 def assert_no_group_leakage(
     train_groups: Sequence,
     test_groups: Sequence,
-    val_groups: Optional[Sequence] = None,
+    val_groups: Sequence | None = None,
 ) -> None:
     """Assert that no group id is shared between splits.
 
@@ -59,6 +59,11 @@ def assert_no_group_leakage(
     LeakageError
         If any group id appears in more than one split.  The message
         lists the offending ids and the pairs of splits where they appear.
+
+    Notes
+    -----
+    Empty inputs (e.g. empty lists) pass silently by design — an empty
+    split cannot contain overlapping groups.
     """
     sets: dict[str, set] = {
         "train": set(train_groups),
@@ -102,9 +107,9 @@ def group_split(
     groups: Sequence,
     labels: Sequence,
     test_size: float = 0.2,
-    val_size: Optional[float] = None,
+    val_size: float | None = None,
     random_seed: int = 42,
-) -> Tuple[np.ndarray, ...]:
+) -> tuple[np.ndarray, ...]:
     """Return group-disjoint sample indices for train / (val /) test splits.
 
     No group id will appear in more than one split.  The split is
@@ -120,13 +125,16 @@ def group_split(
         the group level is infeasible with GroupShuffleSplit when some groups
         have fewer than 2 samples).
     test_size:
-        Fraction of *groups* to assign to the test set.
+        Fraction of *groups* to assign to the test set.  Must be in (0, 1).
     val_size:
         If provided, an additional validation set is carved out of the
         training remainder.  The fraction is relative to the *full* dataset,
-        so ``train_size ≈ 1 − test_size − val_size``.
+        so ``train_size ≈ 1 − test_size − val_size``.  Must be in (0, 1)
+        and ``test_size + val_size`` must be < 1.
     random_seed:
-        Integer seed for reproducibility.
+        Integer seed for reproducibility.  The test split uses ``random_seed``
+        and the val split (when requested) uses ``random_seed + 1`` to avoid
+        correlation between the two splits.
 
     Returns
     -------
@@ -141,7 +149,9 @@ def group_split(
         Via :func:`assert_no_group_leakage` if the produced split is somehow
         not group-disjoint (should never happen, but checked as a guardrail).
     ValueError
-        If ``test_size`` + ``val_size`` >= 1.0 or if ``groups`` / ``labels``
+        If ``groups`` has fewer than 2 unique ids, if ``test_size`` is not in
+        (0, 1), if ``val_size`` is given and not in (0, 1), if
+        ``test_size + val_size >= 1.0``, or if ``groups`` / ``labels``
         lengths mismatch.
     """
     groups = np.asarray(groups)
@@ -153,10 +163,27 @@ def group_split(
             f"({len(groups)} vs {len(labels)})"
         )
 
-    if val_size is not None and test_size + val_size >= 1.0:
+    n_unique_groups = len(np.unique(groups))
+    if n_unique_groups < 2:
         raise ValueError(
-            f"test_size ({test_size}) + val_size ({val_size}) must be < 1.0"
+            f"groups must contain at least 2 unique group ids; "
+            f"got {n_unique_groups}."
         )
+
+    if not (0 < test_size < 1):
+        raise ValueError(
+            f"test_size must be in the open interval (0, 1); got {test_size!r}."
+        )
+
+    if val_size is not None:
+        if not (0 < val_size < 1):
+            raise ValueError(
+                f"val_size must be in the open interval (0, 1); got {val_size!r}."
+            )
+        if test_size + val_size >= 1.0:
+            raise ValueError(
+                f"test_size ({test_size}) + val_size ({val_size}) must be < 1.0"
+            )
 
     n_samples = len(groups)
     all_idx = np.arange(n_samples)
