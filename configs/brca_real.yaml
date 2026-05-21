@@ -1,0 +1,219 @@
+# =============================================================================
+# BRCA Real Data Configuration for HPC Training
+# =============================================================================
+# Target: GSE158508 breast cancer scRNA-seq data
+# Purpose: Full sheaf-GNN training with group-disjoint splitting (no cell-line leakage)
+# Hardware: HPC A100 GPU (80GB VRAM)
+# Estimated runtime: 2-4 hours per epoch
+
+# =============================================================================
+# DATA CONFIGURATION
+# =============================================================================
+data:
+  # Data directory (absolute path or relative to repo root)
+  # On HPC: typically in $SCRATCH or $HOME
+  # Locally: data/ folder with GSE158508 extraction
+  dir: "data/"
+
+  # CRITICAL: Disable synthetic fallback (real data only)
+  allow_synthetic_fallback: false
+
+  # Gene selection
+  n_genes: 2000         # Top 2000 genes by variance
+  n_vars: 2000          # Alternative name for n_genes
+
+  # GRN parameters
+  grn:
+    # Use Spearman correlation for A = M ⊙ R
+    correlation_method: "spearman"
+    # Prior GRN mask (from database)
+    prior_threshold: 0.5
+
+  # K-nearest neighbors graph
+  K: 15                  # k in kNN graph construction
+
+  # Data source
+  use_gse158508: true
+  malignant_only: true   # Only malignant cancer cells (not stromal)
+
+  # Preprocessing
+  log_transform: true
+  scale: true            # Z-score normalization
+
+# =============================================================================
+# MODEL CONFIGURATION
+# =============================================================================
+model:
+  # Sheaf diffusion
+  stalk_dim: 4           # Dimension of stalks (per-node sheaf fiber)
+  num_diffusion_steps: 2 # Diffusion steps per forward pass
+
+  # Laplacian options
+  use_sparse: true       # Use sparse COO Laplacian (memory-efficient)
+
+  # Architecture
+  input_dim: 2000        # Must match n_genes
+  hidden_dim: 128
+
+  # ESM-2 protein embedding (allele information)
+  esm_dim: 1280          # ESM-2-large output dimension
+
+  # Conditioning dimension
+  conditioning_dim: 64   # Bottleneck for allele × sheaf coupling
+
+  # Output
+  num_outputs: 1         # Binary classification (TP53 mutation)
+
+  # Initialization
+  init_restriction_maps: "orthogonal"  # Orthogonal for stable initialization
+
+# =============================================================================
+# TRAINING CONFIGURATION
+# =============================================================================
+training:
+  # Seed for reproducibility
+  seed: 42
+
+  # Optimization
+  optimizer: "adam"
+  learning_rate: 0.001
+  weight_decay: 1.0e-5
+
+  # Scheduling
+  scheduler: "cosine"
+  epochs: 100
+  warmup_epochs: 5
+
+  # Batch size and accumulation
+  batch_size: 32
+  gradient_accumulation_steps: 1
+
+  # Early stopping
+  patience: 15
+  min_delta: 1.0e-4
+
+  # Loss function
+  loss_fn: "bce_with_logits"  # For binary classification
+
+  # Device
+  device: "cuda"
+
+# =============================================================================
+# DATA SPLIT CONFIGURATION
+# =============================================================================
+split:
+  # CRITICAL: Enforce group-disjoint splitting (prevents cell-line leakage)
+  # This is the Ravasio failure mode prevention
+  strategy: "group_shuffle"
+
+  # Test fraction
+  test_size: 0.2
+
+  # Validation fraction (from training set)
+  val_size: 0.1
+
+  # Group column (prevents leakage)
+  # Cell-line ID ensures train/test are from different cell lines
+  group_column: "cell_line"
+
+  # Leakage assertion (MANDATORY)
+  assert_no_leakage: true
+
+  # Random state for reproducibility
+  random_state: 42
+
+# =============================================================================
+# LOGGING & CHECKPOINTING
+# =============================================================================
+logging:
+  # Verbosity
+  level: "INFO"
+
+  # Output directory
+  checkpoint_dir: "checkpoints/"
+
+  # Checkpointing frequency
+  save_every_n_epochs: 10
+  keep_n_best: 3  # Keep 3 best checkpoints by validation metric
+
+  # Metrics logging
+  log_metrics_every_n_steps: 100
+
+  # TensorBoard
+  tensorboard: false
+
+# =============================================================================
+# VALIDATION & METRICS
+# =============================================================================
+validation:
+  # Metrics to track
+  metrics:
+    - "auroc"      # Area under ROC curve
+    - "f1"         # F1 score (binary)
+    - "accuracy"   # Accuracy
+    - "precision"  # Precision
+    - "recall"     # Recall
+
+  # Primary metric for early stopping and checkpointing
+  primary_metric: "auroc"
+
+  # Frequency
+  validate_every_n_epochs: 1
+
+  # Threshold for binary classification
+  classification_threshold: 0.5
+
+# =============================================================================
+# HARDWARE & DISTRIBUTED TRAINING
+# =============================================================================
+hardware:
+  # GPU
+  use_cuda: true
+  cuda_device: 0
+
+  # Mixed precision training (reduces memory, speeds up on A100)
+  mixed_precision: true
+
+  # Gradient checkpointing (trades compute for memory)
+  gradient_checkpointing: true
+
+  # Number of workers for data loading
+  num_workers: 4
+
+  # Pin memory for faster GPU transfer
+  pin_memory: true
+
+# =============================================================================
+# EVALUATION & POST-PROCESSING
+# =============================================================================
+evaluation:
+  # Run evaluation on test set after training
+  eval_on_test: true
+
+  # Compute feature importance / attention visualization
+  compute_importance: true
+
+  # Save predictions to file
+  save_predictions: true
+
+  # Output format for predictions
+  prediction_format: "csv"  # "csv" or "parquet"
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# This configuration is designed for:
+# 1. Real BRCA scRNA-seq data (GSE158508)
+# 2. Group-disjoint splitting (no cell-line leakage)
+# 3. Full training on HPC A100 GPU
+# 4. 38.9× memory reduction via sparse COO Laplacian
+# 5. Reproducible results with set_global_seed(42)
+#
+# To run on HPC:
+#   sbatch scripts/submit_hpc_job.sh configs/brca_real.yaml
+#
+# Expected output:
+#   - Trained model checkpoint
+#   - Validation metrics JSON
+#   - Training log file
+#   - Predictions on test set
